@@ -1,4 +1,4 @@
-"""Ollama SDK integration - streaming chat with tool call parsing."""
+"""Ollama SDK integration - streaming chat with tool call parsing and model options."""
 
 import json
 import re
@@ -10,6 +10,18 @@ from ollama import Client
 
 MODEL = "qwen2.5-coder:7b-instruct"
 TOOL_PATTERN = re.compile(r"<tool>\s*(\{.*?\})\s*</tool>", re.DOTALL)
+
+# Ollama generation options for consistent, technical output.
+# Reference: https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values
+MODEL_OPTIONS = {
+    "temperature": 0.4,          # Lower = more focused and deterministic output
+    "top_p": 0.9,                # Nucleus sampling: keeps top 90% probability mass
+    "top_k": 40,                 # Limits token pool per step
+    "num_ctx": 8192,             # Context window size (tokens)
+    "num_predict": -1,           # No limit on response length (-1 = unlimited)
+    "repeat_penalty": 1.1,       # Penalizes repeated tokens/phrases
+    "stop": ["[END]"],           # Custom stop sequence for report boundary
+}
 
 # Thinking indicator
 THINKING_FRAMES = [".", "..", "..."]
@@ -46,8 +58,9 @@ class _ThinkingIndicator:
 
 
 class OllamaChat:
-    def __init__(self, system_prompt: str):
+    def __init__(self, system_prompt: str, options: dict | None = None):
         self.client = Client()
+        self.options = options or MODEL_OPTIONS
         self.messages: list[dict] = [
             {"role": "system", "content": system_prompt},
         ]
@@ -66,6 +79,8 @@ class OllamaChat:
                 model=MODEL,
                 messages=self.messages,
                 stream=True,
+                options=self.options,
+                keep_alive="10m",
             )
 
             for chunk in stream:

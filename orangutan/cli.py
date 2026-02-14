@@ -7,6 +7,7 @@ import click
 
 from orangutan import __version__
 from orangutan.ollama_client import OllamaChat, parse_tool_calls
+from orangutan.report import contains_report, format_report
 from orangutan.system_prompt import build_system_prompt
 from orangutan.tools import execute_tool
 
@@ -31,6 +32,54 @@ Commands:
 """
 
 MAX_TOOL_ROUNDS = 10
+
+REPORT_START = "--- EXECUTION REPORT ---"
+REPORT_END = "--- END REPORT ---"
+
+
+def _reprint_colored_report(response: str) -> None:
+    """Clear the plain-text report from the terminal and reprint it with ANSI colors.
+
+    The streaming output already printed the report without colors.
+    This function moves the cursor up, clears those lines, and reprints
+    the report section with colored file/function references.
+    """
+    start_idx = response.find(REPORT_START)
+    end_idx = response.find(REPORT_END)
+    if start_idx == -1 or end_idx == -1:
+        return
+
+    report_section = response[start_idx : end_idx + len(REPORT_END)]
+    plain_lines = report_section.split("\n")
+    num_lines = len(plain_lines)
+
+    # Move cursor up and clear each plain-text report line
+    sys.stdout.write(f"\033[{num_lines}A")
+    for _ in range(num_lines):
+        sys.stdout.write("\033[2K\033[1B")
+    sys.stdout.write(f"\033[{num_lines}A")
+
+    # Print the colored version
+    colored = format_report(response)
+    colored_start = colored.find("\033")  # find first ANSI sequence in report area
+    # Re-extract just the report portion from the colored output
+    c_start = colored.find(REPORT_START)
+    # Find the visible end (after ANSI codes around REPORT_END)
+    c_end = colored.find(REPORT_END, c_start)
+    # Walk forward past the REPORT_END text and any trailing ANSI reset
+    c_end_full = colored.find("\n", c_end)
+    if c_end_full == -1:
+        c_end_full = len(colored)
+
+    # Find the actual colored block start (includes ANSI prefix)
+    # Walk backwards from c_start to capture leading ANSI codes
+    search_pos = c_start
+    while search_pos > 0 and colored[search_pos - 1] != "\n":
+        search_pos -= 1
+
+    colored_report = colored[search_pos:c_end_full]
+    sys.stdout.write(colored_report + "\n")
+    sys.stdout.flush()
 
 
 @click.command()
@@ -106,5 +155,9 @@ def main(path: str) -> None:
 
             click.echo()
             response = chat.send("Continue based on the tool results above.")
+
+        # Re-print the execution report with colors if present
+        if contains_report(response):
+            _reprint_colored_report(response)
 
         click.echo()

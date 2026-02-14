@@ -69,6 +69,17 @@ Every tool execution prints a status line:
   -> [ask_user] waiting for developer input...
 ```
 
+### Execution Report
+After completing a task, the assistant generates a structured execution report
+with colored references:
+- **Cyan**: file paths (e.g., `src/models/user.py`)
+- **Yellow**: function/class names (e.g., `validate_input()`)
+- **Green**: report delimiters
+- **Dim**: section headers
+
+The report includes: actions performed, files modified/created/read,
+commands executed, and a technical summary referencing specific code paths.
+
 ### Developer Decision Prompts (ask_user)
 The assistant uses interactive prompts to consult you on every decision:
 ```
@@ -97,3 +108,4 @@ dependencies to `pyproject.toml`).
 | [architecture.md](architecture.md) | System architecture and how it works |
 | [philosophy.md](philosophy.md) | Core philosophy: developer-driven development |
 | [ask-tool.md](ask-tool.md) | ask_user tool reference and usage guide |
+| [ollama-options.md](ollama-options.md) | Ollama model parameters reference and tuning guide |
