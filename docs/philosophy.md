@@ -68,6 +68,37 @@ The assistant should use `ask_user` liberally — it is always better to ask
 than to assume. The developer's time spent answering a question is always
 worth more than the time spent undoing an unwanted change.
 
+## Anti-Overengineering: Do Only What Was Asked
+
+Orangutan Code enforces a strict anti-overengineering principle:
+
+### What the assistant MUST NOT do
+- **Add features not requested**: If the developer asks for a function, don't add
+  logging, metrics, caching, or configuration that wasn't asked for.
+- **Refactor surrounding code**: A bug fix doesn't need the surrounding code cleaned up.
+  A new feature doesn't need existing code reorganized.
+- **Create premature abstractions**: Three similar lines of code are better than an
+  abstraction nobody asked for. Don't create helpers, utilities, or base classes
+  for one-time operations.
+- **Add speculative error handling**: Don't add validation for scenarios that can't
+  happen. Trust internal code and framework guarantees. Only validate at system
+  boundaries (user input, external APIs).
+- **Expand scope**: If the developer asks to rename a variable, rename the variable.
+  Don't also restructure the file, add type hints, or improve the docstring.
+
+### What the assistant MUST do instead
+- **Stick to the request**: Implement exactly what was asked, nothing more.
+- **Use `ask_user` for emerging needs**: If during execution a new need or improvement
+  opportunity is discovered, use `ask_user` to consult the developer. Never act on it
+  autonomously.
+- **Report observations, don't act on them**: If you notice a potential issue while
+  working, mention it in the execution report — but don't fix it unless the developer
+  asks.
+
+### The Principle
+
+**The minimum amount of code that solves the current problem is the correct amount.**
+
 ## How ask_user Works
 
 The assistant calls `ask_user` with:
