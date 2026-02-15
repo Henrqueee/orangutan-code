@@ -13,15 +13,22 @@ TOOL_PATTERN = re.compile(r"<tool>\s*(\{.*?\})\s*</tool>", re.DOTALL)
 
 # Ollama generation options for consistent, technical output.
 # Reference: https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values
+NUM_CTX = 32768
+
 MODEL_OPTIONS = {
     "temperature": 0.4,          # Lower = more focused and deterministic output
     "top_p": 0.9,                # Nucleus sampling: keeps top 90% probability mass
     "top_k": 40,                 # Limits token pool per step
-    "num_ctx": 8192,             # Context window size (tokens)
+    "num_ctx": NUM_CTX,          # Context window size (tokens)
     "num_predict": -1,           # No limit on response length (-1 = unlimited)
     "repeat_penalty": 1.1,       # Penalizes repeated tokens/phrases
     "stop": ["[END]"],           # Custom stop sequence for report boundary
 }
+
+# Token estimation: ~4 characters per token (rough average for English + code)
+CHARS_PER_TOKEN = 4
+TOKEN_WARNING_THRESHOLD = 0.75  # Warn at 75% capacity
+
 
 # Thinking indicator
 THINKING_FRAMES = [".", "..", "..."]
@@ -61,13 +68,37 @@ class OllamaChat:
     def __init__(self, system_prompt: str, options: dict | None = None):
         self.client = Client()
         self.options = options or MODEL_OPTIONS
+        self.num_ctx = self.options.get("num_ctx", NUM_CTX)
         self.messages: list[dict] = [
             {"role": "system", "content": system_prompt},
         ]
 
+    def _estimate_tokens(self) -> int:
+        """Estimate total token count across all messages."""
+        total_chars = sum(len(m.get("content", "")) for m in self.messages)
+        return total_chars // CHARS_PER_TOKEN
+
+    def _check_context_usage(self) -> None:
+        """Print a warning if context usage is high."""
+        estimated = self._estimate_tokens()
+        usage_pct = estimated / self.num_ctx
+        if usage_pct >= 0.90:
+            sys.stdout.write(
+                f"\033[91m  [CONTEXT CRITICAL: ~{estimated}/{self.num_ctx} tokens ({usage_pct:.0%}). "
+                f"Use /clear to reset conversation.]\033[0m\n"
+            )
+            sys.stdout.flush()
+        elif usage_pct >= TOKEN_WARNING_THRESHOLD:
+            sys.stdout.write(
+                f"\033[93m  [CONTEXT WARNING: ~{estimated}/{self.num_ctx} tokens ({usage_pct:.0%})]\033[0m\n"
+            )
+            sys.stdout.flush()
+
     def send(self, user_message: str) -> str:
         """Send a user message and stream the response. Returns full response text."""
         self.messages.append({"role": "user", "content": user_message})
+
+        self._check_context_usage()
 
         full_response = ""
         indicator = _ThinkingIndicator()

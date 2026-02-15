@@ -5,7 +5,7 @@ import os
 IGNORE_DIRS = {
     ".git", "__pycache__", "node_modules", ".venv", "venv",
     ".env", "dist", "build", ".tox", ".mypy_cache", ".pytest_cache",
-    "egg-info", ".eggs", ".idea", ".vscode",
+    "egg-info", ".eggs", ".idea", ".vscode", ".orangutan-config",
 }
 
 IGNORE_FILES = {

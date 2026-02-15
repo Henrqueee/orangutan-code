@@ -6,6 +6,14 @@ import sys
 import click
 
 from orangutan import __version__
+from orangutan.config import (
+    build_auto_config,
+    config_exists,
+    config_path,
+    read_config,
+    write_config,
+)
+from orangutan.context import build_directory_tree
 from orangutan.ollama_client import OllamaChat, parse_tool_calls
 from orangutan.report import contains_report, format_report
 from orangutan.system_prompt import build_system_prompt
@@ -29,6 +37,7 @@ Commands:
   /exit     Exit Orangutan Code
   /clear    Clear conversation history
   /tree     Show project directory tree
+  /config   Show orangutan.md config file path
 """
 
 MAX_TOOL_ROUNDS = 10
@@ -97,7 +106,19 @@ def main(path: str) -> None:
     click.echo(BANNER)
     click.echo(f"  Working directory: {cwd}\n")
 
-    system_prompt = build_system_prompt(cwd)
+    # Check/generate orangutan.md config
+    if not config_exists(cwd):
+        click.echo("  \033[93mNo orangutan.md found. Generating project config...\033[0m")
+        tree = build_directory_tree(cwd)
+        auto_config = build_auto_config(cwd, tree)
+        written_path = write_config(cwd, auto_config)
+        click.echo(f"  \033[92mCreated: {written_path}\033[0m")
+        click.echo(f"  You can edit this file to customize the assistant's behavior.\n")
+    else:
+        click.echo(f"  \033[90mConfig loaded: {config_path(cwd)}\033[0m\n")
+
+    project_config = read_config(cwd)
+    system_prompt = build_system_prompt(cwd, project_config)
     chat = OllamaChat(system_prompt)
 
     while True:
@@ -120,14 +141,22 @@ def main(path: str) -> None:
                 click.echo(HELP_TEXT)
                 continue
             elif cmd == "/clear":
-                system_prompt = build_system_prompt(cwd)
+                project_config = read_config(cwd)
+                system_prompt = build_system_prompt(cwd, project_config)
                 chat = OllamaChat(system_prompt)
-                click.echo("  Conversation cleared.\n")
+                click.echo("  Conversation cleared. Config reloaded.\n")
                 continue
             elif cmd == "/tree":
-                from orangutan.context import build_directory_tree
                 click.echo(build_directory_tree(cwd))
                 click.echo()
+                continue
+            elif cmd == "/config":
+                p = config_path(cwd)
+                if os.path.isfile(p):
+                    click.echo(f"  Config file: {p}")
+                    click.echo(f"  Edit this file to customize assistant behavior.\n")
+                else:
+                    click.echo(f"  No config file found.\n")
                 continue
             else:
                 click.echo(f"  Unknown command: {user_input}\n")

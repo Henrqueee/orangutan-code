@@ -24,10 +24,21 @@ project.
 | Parameter  | Type       | Required | Description                                |
 |------------|------------|----------|--------------------------------------------|
 | `question` | `string`   | Yes      | The question to present to the developer   |
-| `options`  | `string[]` | No       | List of selectable choices                 |
+| `options`  | `string[]` | No       | List of selectable choices (ALWAYS 3)      |
 
-- When `options` is provided: arrow-key selection menu + "Other" for custom input
-- When `options` is omitted: free-text input field
+### The 3-Option Rule
+
+The model MUST always provide **exactly 3 options**. The CLI automatically
+appends a 4th option: "Other (type custom answer)" for free-text input.
+
+The developer sees 4 choices total:
+1. Option A (arrow-key selectable)
+2. Option B (arrow-key selectable)
+3. Option C (arrow-key selectable)
+4. Other (type custom answer) ← added automatically by the CLI
+
+Only omit `options` for simple factual questions where predefined choices
+don't make sense (e.g., "What should the table name be?").
 
 ## UX Behavior
 
@@ -87,6 +98,26 @@ The developer types their answer directly.
 - "I'm about to create src/models/user.py with these fields. Proceed?"
 - "I'll run `npm install express`. Is that ok?"
 - "I want to modify the database schema. Here's the plan..."
+
+## Mid-Flow Questioning
+
+The `ask_user` tool can be called at **any point during execution**, not just
+at the start. The agentic tool loop in `cli.py` supports this: each tool call
+(including `ask_user`) is executed, the result is fed back to the model, and
+the model continues based on the developer's answer.
+
+### How it works
+
+1. Developer requests a task
+2. Model starts working (reading files, analyzing code...)
+3. A decision point or doubt arises mid-execution
+4. Model **pauses** and calls `ask_user` with 3 options
+5. Developer selects an option or types a custom answer
+6. Model receives the answer and continues execution
+7. If another question arises → repeat from step 4
+
+This ensures the developer is in control at every step, even during complex
+multi-step tasks. The model never makes assumptions — it always asks.
 
 ## Design Philosophy
 

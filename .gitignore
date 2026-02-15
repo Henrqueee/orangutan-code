@@ -1,4 +1,5 @@
 .claude/
+.orangutan-config/
 __pycache__/
 *.py[cod]
 *.egg-info/

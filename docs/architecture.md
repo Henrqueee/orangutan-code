@@ -95,25 +95,56 @@ orangutan-code/
 | Tool | Description | Priority |
 |------|-------------|----------|
 | `ask_user` | Ask the developer a question with options or free text | **PRIMARY** |
+| `list_directory` | List files and folders in a directory with sizes | Navigation |
+| `search_files` | Find files by glob pattern (e.g., `*.py`, `docker-compose*`) | Navigation |
+| `search_content` | Search text inside files, case-insensitive (grep) | Navigation |
 | `read_file` | Read file contents. Path must be within project dir. | Standard |
 | `write_file` | Write/create a file. Creates parent dirs if needed. | Standard |
 | `edit_file` | Replace a unique string in a file (single occurrence). | Standard |
 | `run_command` | Execute a shell command with 30s timeout. | Standard |
+| `update_config` | Update a section of orangutan.md project config | Config |
 
 `ask_user` is the most important tool. See [ask-tool.md](ask-tool.md).
 
-### 7. Developer Autonomy (System Prompt)
+**3-Option Rule**: The model always provides exactly 3 selectable options.
+The CLI automatically adds a 4th option ("Other - type custom answer") for
+free-text input. Options are only omitted for simple factual questions.
+
+**Mid-Flow Questioning**: The model can pause at any point during execution
+to ask the developer a question via `ask_user`. The agentic tool loop supports
+this — the model calls `ask_user`, receives the answer, and continues. This
+ensures the developer guides every decision, even those that emerge mid-task.
+
+The navigation tools (`list_directory`, `search_files`, `search_content`) allow the
+assistant to explore and understand the codebase autonomously before taking actions,
+without relying on `run_command` for basic filesystem operations.
+
+### 7. Project Config (`config.py` + `.orangutan-config/orangutan.md`)
+
+Each project gets a local config file at `.orangutan-config/orangutan.md`:
+- **Auto-generated on first run**: scans directory tree + key files (package.json,
+  docker-compose.yml, README.md, etc.) to detect stack and setup
+- **Read on every session startup**: injected into the system prompt as context
+- **Auto-updated by the model**: when relevant discoveries are made during a session
+  (new dependencies, setup commands, conventions), the model updates the config
+  using the `update_config` tool silently
+- **Editable by the developer**: the file is plain Markdown, the developer can
+  add preferences, conventions, and notes that guide the assistant
+- **Gitignored**: `.orangutan-config/` is local to each developer, not committed
+
+### 8. Developer Autonomy (System Prompt)
 
 The system prompt enforces that:
 - The developer makes ALL decisions about schemas, workflows, and architecture
 - `ask_user` must be used before any action that affects the project
 - The AI never assumes — it always asks
-- Options are presented with concrete choices when possible
-- The developer can always type a custom answer
+- `ask_user` ALWAYS provides exactly 3 options (4th "Other" added automatically)
+- The developer can always type a custom answer via the "Other" option
+- `ask_user` can be called at ANY point during execution (mid-flow questioning)
 - The AI NEVER over-engineers: it does only what was requested, nothing more
-- When doubts or new needs arise, `ask_user` is used immediately
+- When doubts or new needs arise mid-execution, `ask_user` is used immediately
 
-### 8. Anti-Overengineering Principle
+### 9. Anti-Overengineering Principle
 
 The assistant is strictly prohibited from:
 - Adding features, improvements, or refactors that were **not explicitly requested**
@@ -125,7 +156,7 @@ The assistant is strictly prohibited from:
 When a new need or question emerges during execution, the assistant MUST use
 `ask_user` to consult the developer instead of making assumptions.
 
-### 9. Security
+### 10. Security
 - All file paths are resolved and checked to stay within the project directory
 - Shell commands run with a 30-second timeout
 - No network access beyond localhost Ollama
